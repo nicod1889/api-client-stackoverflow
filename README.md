@@ -1,68 +1,104 @@
 # api-client-stackoverflow
 
-Cliente worker simple de API para consumir la API pública de StackOverflow y persistir metadatos en una base de datos SQL.
+Cliente worker de línea de comandos, escrito en C, que consume la API pública de StackOverflow y persiste los metadatos de las preguntas en una base de datos SQLite.
+
+Proyecto educativo para la materia **Redes de las Computadoras II**. Actúa únicamente como consumidor de información pública y no modifica el contenido de StackOverflow.
+
+> El compromiso formal de lo que hace (y no hace) la aplicación está en [`contrato-proyecto.md`](contrato-proyecto.md). Los hitos y fechas están en [`workplan.md`](workplan.md).
 
 ---
 
-# Objetivo
+## Objetivo
 
-El objetivo de este proyecto es construir una aplicación worker capaz de:
+Construir un worker capaz de:
 
-* consumir una API pública externa,
-* procesar respuestas en formato JSON,
-* almacenar metadatos de forma persistente en una base de datos SQL.
+- consumir una API pública externa por HTTPS,
+- procesar y validar respuestas en formato JSON,
+- almacenar metadatos de forma persistente en una base SQL,
+- conservar el historial de cambios de cada recurso.
 
-El proveedor asignado para esta implementación es StackOverflow.
-
-El proyecto busca emular un sistema ligero de persistencia tipo "second brain" (segundo cerebro), capaz de agregar fuentes de datos externas y heterogéneas bajo un modelo de almacenamiento común.
+El proveedor asignado es StackOverflow (Stack Exchange API v2.3). El proyecto emula un sistema liviano de persistencia tipo *"second brain"*, capaz de agregar fuentes externas y heterogéneas bajo un modelo de almacenamiento común (`assets`).
 
 ---
 
-# Contrato de la API
+## Dependencias
 
-### Proveedor
+Además de la biblioteca estándar de C (glibc), el proyecto usa:
 
-API de StackOverflow (Stack Exchange API v2.3).
+| Librería | Uso | Paquete (Debian/Ubuntu) |
+|---|---|---|
+| libcurl | Cliente HTTPS | `libcurl4-openssl-dev` |
+| cJSON | Parseo de JSON | `libcjson-dev` |
+| SQLite3 | Base de datos | `libsqlite3-dev` |
 
-### Endpoint
+## Requisitos previos
 
-```text
-[https://api.stackexchange.com/2.3/questions/](https://api.stackexchange.com/2.3/questions/){id}?site=stackoverflow
+- Linux (desarrollado y probado en Ubuntu/Debian).
+- Compilador `gcc` con soporte GNU11 y `make`.
+- Las tres librerías de la tabla anterior.
+- Conexión a internet para consultas reales (los tests no la necesitan).
+- Opcional: `sqlite3` (cliente de consola) para inspeccionar la base.
 
+```bash
+sudo apt install build-essential libcurl4-openssl-dev libcjson-dev libsqlite3-dev sqlite3
 ```
 
-Donde {id} representa el identificador numérico único de la pregunta de StackOverflow.
-Ejemplo:
+## Compilación y uso
 
-```text
-
-[https://api.stackexchange.com/2.3/questions/41107297?site=stackoverflow](https://api.stackexchange.com/2.3/questions/41107297?site=stackoverflow)
-
+```bash
+make          # compila y genera ./so-worker
+make test     # ejecuta los tests
+make clean    # borra binarios y objetos
 ```
 
-Respuesta Esperada de la API
-La API devuelve metadatos en formato JSON que describen la pregunta solicitada dentro de un array llamado items.
-Ejemplo de respuesta:
+```bash
+./so-worker 41107297
+./so-worker https://stackoverflow.com/questions/41107297/titulo-de-la-pregunta
+./so-worker --db mi_base.db -v 41107297
+./so-worker --from-file tests/fixtures/ok.json 41107297
+```
 
-```text
+### Comandos y opciones
 
+| Opción | Descripción |
+|---|---|
+| `<id>` / `<url>` | ID numérico o URL completa de la pregunta |
+| `--db <ruta>` | Base SQLite (por defecto `stackoverflow.db`) |
+| `--from-file <ruta>` | Usa un JSON local en lugar de la red (tests offline) |
+| `-v`, `--verbose` | Salida detallada |
+| `-h`, `--help` | Ayuda |
+
+### Códigos de salida
+
+| Código | Significado |
+|---|---|
+| 0 | Éxito (creado, actualizado o sin cambios) |
+| 1 | Uso incorrecto o entrada inválida |
+| 2 | Error de red o HTTP distinto de 200 |
+| 3 | Respuesta inválida (JSON mal formado o schema no cumplido) |
+| 4 | Pregunta no encontrada |
+| 5 | Error de base de datos |
+
+---
+
+## Contrato de la API
+
+**Endpoint:**
+
+```
+https://api.stackexchange.com/2.3/questions/{id}?site=stackoverflow
+```
+
+`{id}` es el identificador numérico de la pregunta. La API responde siempre comprimida con gzip, por lo que el cliente debe habilitar la descompresión. El acceso anónimo tiene un límite de cuota diario (el campo `quota_max` de la respuesta indica 300).
+
+**Respuesta esperada (resumida):**
+
+```json
 {
   "items": [
     {
-      "tags": [
-        "html",
-        "artificial-intelligence",
-        "dashboard"
-      ],
-      "owner": {
-        "account_id": 20764881,
-        "reputation": 11,
-        "user_id": 15249147,
-        "user_type": "registered",
-        "profile_image": "https://www.gravatar.com/avatar/ddc1cdb397261ade9ced7434b5fd3b98?s=256&d=identicon&r=PG&f=y&so-version=2",
-        "display_name": "joy.kumagai",
-        "link": "https://stackoverflow.com/users/15249147/joy-kumagai"
-      },
+      "tags": ["html", "artificial-intelligence", "dashboard"],
+      "owner": { "user_id": 15249147, "display_name": "joy.kumagai" },
       "is_answered": false,
       "view_count": 4,
       "answer_count": 0,
@@ -70,23 +106,31 @@ Ejemplo de respuesta:
       "last_activity_date": 1781568903,
       "creation_date": 1781568903,
       "question_id": 79959398,
-      "content_license": "CC BY-SA 4.0",
-      "link": "https://stackoverflow.com/questions/79959398/which-program-should-i-use-to-access-anthropic-with-an-api-key-that-does-not-set",
-      "title": "Which program should I use to access Anthropic with an API key that does not set token limits?"
+      "link": "https://stackoverflow.com/questions/79959398/...",
+      "title": "Which program should I use to access Anthropic ..."
     }
   ],
   "has_more": false,
   "quota_max": 300,
   "quota_remaining": 299
 }
-
 ```
 
-Modelo de Persistencia
-El worker almacena los datos utilizando el siguiente esquema SQL:
+### Schema validado
 
-```text
+Se valida el objeto `items[0]`:
 
+- **Obligatorios:** `question_id` (entero), `title` (cadena), `link` (cadena).
+- **Opcionales conocidos:** `tags`, `owner`, `is_answered`, `view_count`, `answer_count`, `score`, `creation_date`, `last_activity_date`, `content_license`. Si están, deben tener el tipo correcto.
+- **Campos desconocidos:** se conservan y se avisa en modo verbose.
+
+Si el formato de la API cambia y el schema no se cumple, el worker termina con código 3, informa el error y **no escribe nada** en la base. El detalle completo está en la sección 3.3 del contrato.
+
+---
+
+## Modelo de persistencia
+
+```sql
 CREATE TABLE IF NOT EXISTS assets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     asset_uri TEXT UNIQUE NOT NULL,
@@ -105,71 +149,106 @@ CREATE TABLE IF NOT EXISTS assets_history (
     history_payload TEXT NOT NULL,
     FOREIGN KEY (asset_id) REFERENCES assets (id) ON DELETE CASCADE
 );
-
 ```
 
-### Campos Almacenados
+| Campo | Valor |
+|---|---|
+| `asset_uri` | `https://stackoverflow.com/questions/{question_id}` |
+| `title` | Título de la pregunta |
+| `entity` | `question` |
+| `provider` | `stackoverflow` |
+| `meta_payload` | Objeto `items[0]` en JSON, tal como lo devolvió la API |
+| `history_payload` | `meta_payload` anterior a un cambio (snapshot) |
 
-| Campo | Descripción |
-| :--- | :--- |
-| **asset_uri** | URL canónica única de la pregunta |
-| **title** | Título de la pregunta |
-| **entity** | Tipo de entidad lógica (`question`) |
-| **provider** | Proveedor de datos (`stackoverflow`) |
-| **meta_payload** | Payload JSON crudo devuelto por la API |
-
----
-
-### Historial de Snapshots
-
-El proyecto también soporta la persistencia histórica de los metadatos de los assets. Cuando un asset existente se actualiza, el estado anterior se puede almacenar en la tabla `assets_history` como un snapshot en formato JSON.
-
-Esto permite:
-* Un seguimiento básico de cambios.
-* La preservación del historial de metadatos.
-* La auditoría de la evolución de los datos de la API a lo largo del tiempo.
-
-> **Nota:** La fuente externa original nunca se modifica.
+> Nota: SQLite exige `PRAGMA foreign_keys = ON;` en cada conexión para que se respete la clave foránea; el worker lo activa al abrir la base.
 
 ---
 
-### Arquitectura Planificada
+## Flujo de la aplicación
 
-El flujo de trabajo esperado de la aplicación es:
-
-1. Recibir el ID de una pregunta o una URL completa como entrada a través de la CLI.
-2. Parsear la entrada para extraer el ID numérico único.
-3. Realizar una solicitud HTTPS segura a la API de StackOverflow utilizando `libcurl`.
-4. Recibir y descomprimir la respuesta JSON.
-5. Extraer los campos de metadatos relevantes (`link`, `title`, etc.).
-6. Persistir el recurso en la base de datos SQLite.
-7. Almacenar el payload JSON completo dentro de `meta_payload` para futuros procesamientos polimórficos.
-8. Opcionalmente, preservar las versiones anteriores en la tabla `assets_history` si el asset ya existía.
-
----
-
-### Tecnologías
-
-* **Lenguaje:** C (Estándar GNU11)
-* **Librería de cliente HTTP:** `libcurl`
-* **Parser de JSON:** `cJSON`
-* **Base de datos:** SQLite (`libsqlite3`)
-
----
-
-### Estado Actual
-
-Estado actual del repositorio:
-* Repositorio inicializado.
-* Contrato de la API definido.
-* Esquema de la base de datos definido.
-* Modelo de persistencia documentado.
-* Arquitectura en proceso de desarrollo.
-
-*La implementación se encuentra actualmente en curso.*
+```
+CLI (<id | url>)
+      |
+      v
+Parsear entrada -> ID numérico        (error: código 1)
+      |
+      v
+HTTPS GET a la API (libcurl)          (error: código 2)
+      |
+      v
+Parsear JSON y validar schema         (error: código 3 / 4)
+      |
+      v
+¿Existe el asset_uri en la base?
+      |
+      +-- No ------------> INSERT en assets
+      |
+      +-- Sí, sin cambios -> no hace nada
+      |
+      +-- Sí, con cambios -> snapshot en assets_history + UPDATE assets
+      |                      (una sola transacción)    (error: código 5)
+      v
+Informar resultado y terminar
+```
 
 ---
 
-### Notas
+## Tests
 
-Este proyecto está destinado a fines educativos para la materia Redes de las Computadoras II. El worker actúa únicamente como un consumidor de información pública y no modifica el contenido de StackOverflow.
+- **Tests de integración con script de shell** (`tests/run_tests.sh`): ejecutan `so-worker --from-file` con respuestas JSON de ejemplo (`tests/fixtures/`) y verifican el código de salida y el contenido de la base.
+- **Tests unitarios en C** del parseo de entrada (ID y URL) y de la validación del schema.
+- No requieren internet: la red se reemplaza por archivos locales.
+
+Casos cubiertos: creación, actualización con historial, consulta sin cambios, ID inválido, URL inválida, `items` vacío, campo obligatorio faltante, tipo incorrecto, JSON mal formado, campo desconocido y respuesta HTTP con error (simulada).
+
+---
+
+## Estructura del proyecto
+
+```
+api-client-stackoverflow/
+├── README.md
+├── contrato-proyecto.md
+├── workplan.md
+├── Makefile
+├── src/
+│   ├── main.c          # CLI y flujo general
+│   ├── input.c         # parseo de ID / URL
+│   ├── http.c          # cliente libcurl
+│   ├── schema.c        # validación del JSON (cJSON)
+│   └── db.c            # SQLite: assets y assets_history
+├── include/            # headers (.h)
+├── db/
+│   └── schema.sql      # definición de tablas
+├── tests/
+│   ├── run_tests.sh
+│   ├── unit/
+│   └── fixtures/       # respuestas JSON de ejemplo
+└── Documentacion/
+    ├── 01-BDD.md
+    ├── 02-API_SETUP.md
+    ├── 03-ImplementacionFinal.md
+    ├── 04-Evidencias.md
+    └── adr/            # decisiones de arquitectura (opcional)
+```
+
+## Documentación
+
+- [Contrato del proyecto](contrato-proyecto.md)
+- [Workplan](workplan.md)
+- [Base de datos (análisis)](Documentacion/01-BDD.md)
+- [Configuración de la API](Documentacion/02-API_SETUP.md)
+- [Implementación final](Documentacion/03-ImplementacionFinal.md)
+- [Evidencias de implementación](Documentacion/04-Evidencias.md)
+
+---
+
+## Estado actual
+
+- [x] Repositorio inicializado
+- [x] Contrato de la API y modelo de persistencia definidos
+- [x] Contrato formal del proyecto
+- [ ] Workplan
+- [ ] Implementación
+- [ ] Tests
+- [ ] Documentación final y evidencias
