@@ -67,7 +67,7 @@ Como el desarrollo lo hace una sola persona, las actividades E, F, G y H no pued
 ## 4. Hitos y fechas
 
 | Hito | Fecha objetivo | Actividades | Criterio de cumplimiento |
-|---|---|---|---|---|
+|---|---|---|---|
 | H1: Base del proyecto | 22/11/2026 | B, C, D | `workplan.md` en el repo; el proyecto compila vacío |
 | H2: Entrada y red | 24/11/2026 | E, F | Se parsea ID/URL y se obtiene el JSON real de la API |
 | H3: Schema validado | 25/11/2026 | G | Se detectan respuestas inválidas con el código de salida 3 |
