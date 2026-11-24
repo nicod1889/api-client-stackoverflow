@@ -1,8 +1,8 @@
 # Workplan: api-client-stackoverflow
 
 **Materia:** Redes de las Computadoras II
-**Versión:** 1.0 (20/11/2026)
-**Responsable:** [Nombre y apellido del alumno]
+**Versión:** 1.1 (24/11/2026)
+**Responsable:** Nicolás Dinolfo
 
 Este documento complementa a [`contrato-proyecto.md`](contrato-proyecto.md). Define qué se implementa, cuándo y en cuánto tiempo. Puede ajustarse durante el proyecto; cada cambio queda registrado en la sección 6 y en los commits correspondientes.
 
@@ -11,9 +11,9 @@ Este documento complementa a [`contrato-proyecto.md`](contrato-proyecto.md). Def
 ## 1. Supuestos
 
 - Una sola persona desarrolla el proyecto.
-- Dedicación estimada: **3,5 horas por día**, desde el 21/11 hasta el 30/11/2026.
+- Dedicación estimada: **2 horas por día**, desde el 25/11 hasta el 11/12/2026.
 - Entorno de desarrollo: Linux.
-- Meta de fecha: llegar a la mesa de examen del 01/12/2026. Como alternativa, la siguiente mesa.
+- Meta de fecha: llegar a la mesa de examen del 15/12/2026.
 
 ## 2. Actividades
 
@@ -62,21 +62,21 @@ flowchart LR
 
 **Camino crítico:** C → D → H → I → J → K → L, con una duración esperada de **≈ 21,2 horas**.
 
-Como el desarrollo lo hace una sola persona, las actividades E, F, G y H no pueden hacerse en paralelo en la práctica. Por eso el calendario de la sección 4 se arma sumando todo el esfuerzo (≈ 34,5 h) a un ritmo de 3,5 h por día.
+Como el desarrollo lo hace una sola persona, las actividades E, F, G y H no pueden hacerse en paralelo en la práctica. Por eso el calendario de la sección 4 se arma sumando el esfuerzo pendiente (≈ 32,5 h, ya descontado el trabajo hecho) a un ritmo de 2 h por día.
 
 ## 4. Hitos y fechas
 
 | Hito | Fecha objetivo | Actividades | Criterio de cumplimiento |
 |---|---|---|---|
-| H1: Base del proyecto | 22/11/2026 | B, C, D | `workplan.md` en el repo; el proyecto compila vacío |
-| H2: Entrada y red | 24/11/2026 | E, F | Se parsea ID/URL y se obtiene el JSON real de la API |
-| H3: Schema validado | 25/11/2026 | G | Se detectan respuestas inválidas con el código de salida 3 |
-| H4: Persistencia | 27/11/2026 | H | Alta, actualización con historial y "sin cambios" funcionan |
-| H5: Flujo completo | 28/11/2026 | I | `./so-worker <id>` funciona de punta a punta |
-| H6: Tests | 29/11/2026 | J | `make test` pasa todos los casos |
-| H7: Entrega | 30/11/2026 | K, L | Documentación y evidencias completas; repo listo |
+| H1: Base del proyecto | 27/11/2026 | C, D | El entorno compila con las 3 librerías y el proyecto compila vacío |
+| H2: Entrada y red | 30/11/2026 | E, F | Se parsea ID/URL y se obtiene el JSON real de la API |
+| H3: Schema validado | 02/12/2026 | G | Se detectan respuestas inválidas con el código de salida 3 |
+| H4: Persistencia | 05/12/2026 | H | Alta, actualización con historial y "sin cambios" funcionan |
+| H5: Flujo completo | 06/12/2026 | I | `./so-worker <id>` funciona de punta a punta |
+| H6: Tests | 09/12/2026 | J | `make test` pasa todos los casos |
+| H7: Entrega | 11/12/2026 | K, L | Documentación y evidencias completas; repo listo |
 
-El margen es mínimo: el calendario cierra justo el 30/11. Cualquier retraso mueve la fecha de la mesa.
+Los días 12, 13 y 14/12 quedan como margen ante retrasos, antes de la mesa del 15/12.
 
 ## 5. Documentación a generar
 
@@ -87,3 +87,4 @@ Según el avance: `Documentacion/01-BDD.md` (con H), `02-API_SETUP.md` (con F), 
 | Fecha | Versión | Cambio |
 |---|---|---|
 | 20/11/2026 | 1.0 | Versión inicial |
+| 24/11/2026 | 1.1 | La meta pasa a la mesa del 15/12; se recalculan hitos y ritmo de trabajo (2 h por día) |
